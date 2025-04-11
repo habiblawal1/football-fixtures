@@ -1,0 +1,37 @@
+# Ignore environment variable files
+.env
+.env.*
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VS Code settings
+.vscode/
+
+# macOS system files
+.DS_Store
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Anaconda
+.conda/
+*.conda
+*.ipynb
+
+# Python virtual environments
+venv/
+env/
+ENV/
+*.egg-info/
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Secret keys or credentials
+secrets.*
+config.yaml
+*.pem
