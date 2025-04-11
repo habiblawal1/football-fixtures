@@ -1,16 +1,18 @@
 # 📋 Powerleague Fixture Fetcher (`getFixtures.py`)
 
-This Python script fetches the **next match fixture** for a specific Powerleague football team, displays the **opponent**, their **current league position**, the **fixture time in 12-hour format**, and a formatted **9-player list** with your captain.
+This Python script fetches the **next match fixture** for a specific Powerleague football team, displays the **opponent**, their **current league position**, the **fixture time in 12-hour format**, and a formatted **9-player list**. It also sends this output to your email and can be fully automated on macOS via `launchd`.
 
 ---
 
 ## 🚀 Features
 
-- ✅ Scrapes the latest fixtures from Powerleague  
-- ✅ Identifies your team's next scheduled match  
-- ✅ Extracts the opponent and their current table position  
-- ✅ Formats the fixture time to 12-hour format (e.g. `7:40pm`)  
-- ✅ Outputs a 9-player matchday list (with the captain hardcoded as `Habib`)  
+- ✅ Scrapes the latest fixtures from Powerleague
+- ✅ Identifies your team's next scheduled match
+- ✅ Extracts the opponent and their current table position
+- ✅ Formats fixture time to 12-hour format (e.g. `7:40pm`)
+- ✅ Generates a 9-player matchday list
+- ✅ **Sends the output to your email address**
+- ✅ **Automatically runs every Friday at 12:00 PM using macOS `launchd`**
 
 ---
 
@@ -23,24 +25,111 @@ Place the `getFixtures.py` file in your project directory.
 ### 2. Install required Python libraries
 
 ```bash
-pip install requests beautifulsoup4
+pip install requests beautifulsoup4 python-dotenv
 ```
+
+### 3. Create a .env file
+
+In the same directory, create a .env file with your email credentials:
+
+```ini
+EMAIL_ADDRESS=youremail@gmail.com
+APP_PASSWORD=your_gmail_app_password
+RECIPIENT_EMAIL=teammate@example.com
+```
+
+🛡️ Do not commit this file. Your .gitignore should include .env.
 
 ## ▶️ Usage
 
-To run the script, use:
+To run the script manually:
 
 ```bash
 python getFixtures.py
 ```
 
-Make sure you're connected to the internet, as the script fetches live fixture and league data from Powerleague's website.
+You'll see the fixture printed in the terminal and emailed to your recipient.
+
+## ⏰ Automate with launchd (macOS)
+
+This script can be automated using macOS's native scheduler, launchd. You can schedule it to run every Friday at 12:00 PM.
+
+### 1. Create a .plist file
+
+Save this file as:
+~/Library/LaunchAgents/com.getfixtures.plist
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.getfixtures</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/python</string>
+        <string>/path/to/your/football-fixtures/getFixtures.py</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>6</integer>  <!-- 6 = Friday -->
+        <key>Hour</key>
+        <integer>12</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/path/to/your/football-fixtures/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/path/to/your/football-fixtures/launchd-error.log</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+```
+
+📝 Replace:
+
+- `/path/to/python` with the path to your Python binary (`which python`)
+- `/path/to/your/football-fixtures` with your project directory
+
+### 2. Load the launch agent
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.getfixtures.plist
+```
+
+To test it manually:
+
+```bash
+launchctl start com.getfixtures
+```
+
+To reload after edits:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.getfixtures.plist
+launchctl load ~/Library/LaunchAgents/com.getfixtures.plist
+```
+
+To check logs:
+
+```bash
+tail -f /path/to/your/football-fixtures/launchd.log
+```
 
 ## 📤 Example Output
 
 ```
 Monday 6aside Harris League vs SAVILLES 6 (1st place) @ 7:40pm
-1. Habib
+1.
 2.
 3.
 4.
@@ -53,28 +142,38 @@ Monday 6aside Harris League vs SAVILLES 6 (1st place) @ 7:40pm
 
 ## 🔍 How It Works
 
-🔹 **getFixturePageHTML()**
+🔹 **getFixturePageHTML()**  
 Fetches and parses HTML from the Powerleague fixture page.
 
-🔹 **getNextFixture(yourTeam)**
-Finds your team's next scheduled match and opponent. Passes the details to the display function.
+🔹 **get_next_fixture(yourTeam)**  
+Finds your team's next scheduled match, opponent, and time. Formats the output and sends it by email.
 
-🔹 **get_table_position(soup, team_name)**
-Searches the standings table and retrieves the opponent's current league position.
+🔹 **get_table_position(soup, team_name)**  
+Searches the standings and retrieves the opponent's league position.
 
-🔹 **print_next_fixture(opponent, fixture_time, opp_table_pos)**
-Prints the formatted fixture message and player list.
+🔹 **next_fixture_string(...)**  
+Returns the formatted string combining match info and the player list.
 
-🔹 **print_player_list()**
-Prints numbers 1 through 9, with Habib as the named player in the first spot.
+🔹 **send_email(subject, body)**  
+Uses Gmail's SMTP server and .env credentials to email the fixture to your team.
 
-🔹 **format_time_12h(time_str)**
-Converts 24-hour clock format like 19:40 to 12-hour format 7:40pm.
+🔹 **create_player_list_string()**  
+Builds the 9-player matchday list (customisable to include player names if desired).
 
-🔹 **num_to_ordinal(n)**
-Formats league positions: 1 becomes 1st, 2 → 2nd, etc.
+🔹 **format_time_12h() / num_to_ordinal()**  
+Formats the fixture time and opponent's league rank for display.
 
 ## 🧠 Notes
+
+Enable App Passwords for Gmail to send emails securely.
+
+The script depends on Powerleague's current page structure — future changes to the site may require updating the scraping logic. You will need to update the `fixturesUrl` variable. The current URL is listed below:
+
+```python
+fixturesUrl = "https://www.powerleague.com/league?league_id=c28ebc23-afc1-5e98-d314-7ee32850746a&division_id=c28ebc23-afc1-5e98-d314-7ee3b0a7846b"
+```
+
+You can modify the team name (myTeam) and customise the player list inside the script.
 
 The team name is currently set as:
 
@@ -84,8 +183,6 @@ myTeam = "AC Me Rol1in"
 
 You can change this at the bottom of the script.
 
-The captain name is hardcoded as "Habib". You can modify the captain variable in print_player_list().
+The captain name is hardcoded as `Habib`. You can modify the captain variable in print_player_list().
 
 If the script cannot find the fixture or opponent's table position, it will exit with a clear error message.
-
-The script relies on Powerleague's page structure — if the site changes, the scraping logic may need to be updated.
