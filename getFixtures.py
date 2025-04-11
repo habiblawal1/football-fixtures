@@ -1,0 +1,110 @@
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+
+def getFixturePageHTML():
+    fixturesUrl = "https://www.powerleague.com/league?league_id=c28ebc23-afc1-5e98-d314-7ee32850746a&division_id=c28ebc23-afc1-5e98-d314-7ee3b0a7846b"
+
+    # Send a GET request to the URL
+    response = requests.get(fixturesUrl)
+    if response.status_code != 200:
+        print(f"Failed to retrieve the page. Status code: {response.status_code}")
+        exit()
+
+    # Parse the HTML content using BeautifulSoup
+    soup = BeautifulSoup(response.text, 'html.parser')
+    return soup
+def num_to_ordinal(n):
+    """Convert an integer to its ordinal string (e.g., 1 -> 1st)."""
+    n = int(n)
+    if 10 <= n % 100 <= 20:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f"{n}{suffix}"
+
+def format_time_12h(time_str):
+    """Convert 24-hour time (e.g., '19:40') to 12-hour format (e.g., '7:40pm')."""
+    time_str = time_str.strip()  # remove any leading/trailing whitespace
+    try:
+        return datetime.strptime(time_str, "%H:%M").strftime("%I:%M%p").lstrip("0").lower()
+    except ValueError:
+        print(f"⚠️ Failed to convert time: '{time_str}' — falling back to original format.")
+        return time_str
+
+def print_player_list():
+    """Print the 9-player list with 'Habib' in the 1st position."""
+    captain="Habib"
+    for i in range(1, 10):
+        name = captain if i == 1 else ""
+        print(f"{i}. {name}")
+
+def print_next_fixture(opponent, fixture_time, opp_table_pos):
+    """Format and print the next fixture details."""
+    position_str = f"{num_to_ordinal(opp_table_pos)} place"
+    time_12hr = format_time_12h(fixture_time)
+    print(f"Monday 6aside Harris League vs {opponent} ({position_str}) @ {time_12hr}")
+    print_player_list()
+
+def getNextFixture(yourTeam):
+    soup=getFixturePageHTML()
+    # Find all rows under the Next Games section
+    rows = soup.find_all("tr")
+
+    next_fixture = None
+
+    for row in rows:
+        teams = row.find_all("a", class_="team-link")
+        time_span = row.find("span", class_="flex items-center justify-center h-5 mx-2 tiny")
+
+        if len(teams) == 2 and time_span:
+            team1 = teams[0].get_text(strip=True)
+            team2 = teams[1].get_text(strip=True)
+
+            if myTeam in [team1, team2]:
+                opponent = team2 if myTeam == team1 else team1
+                time = time_span.get_text(strip=True).split(" - ")[0]  # e.g., "19:40"
+                next_fixture = {
+                    "opponent": opponent,
+                    "time": time
+                }
+                break
+    
+    if not next_fixture or not next_fixture.get("opponent") or not next_fixture.get("time"):
+        print("No upcoming fixture found for ", yourTeam)
+        exit()
+    opp_table_pos=get_table_position(soup, next_fixture['opponent'])
+    print_next_fixture(next_fixture['opponent'], next_fixture['time'], opp_table_pos)
+
+
+def get_table_position(soup, team_name):
+    # Find the standings table wrapper
+    standings_wrapper = soup.find("div", class_="League__Current__Standings")
+    if not standings_wrapper:
+        print("Failed to parse the table standings in the html.")
+        exit()
+
+    # Loop through all rows in the standings
+    rows = standings_wrapper.find_all("tr")
+    for row in rows:
+        columns = row.find_all("td")
+        if len(columns) >= 2:
+            pos_cell = columns[0]
+            team_cell = columns[1]
+
+            team_link = team_cell.find("a", class_="team-link")
+            pos_span = pos_cell.find("span")
+
+            if team_link and pos_span:
+                name = team_link.get_text(strip=True)
+                if name.lower() == team_name.lower():
+                    return pos_span.get_text(strip=True)
+
+    print(f"Can't find {team_name}'s position in the table.")
+    exit()
+
+if __name__ == "__main__":
+    myTeam = "AC Me Rol1in"
+    getNextFixture(myTeam)
+# Output
+
