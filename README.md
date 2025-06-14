@@ -84,6 +84,10 @@ Save this file as:
         <integer>0</integer>
     </dict>
 
+    <!-- Backup: retry hourly in case the machine was asleep -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
     <key>StandardOutPath</key>
     <string>/path/to/your/football-fixtures/launchd.log</string>
     <key>StandardErrorPath</key>
@@ -170,7 +174,7 @@ Enable App Passwords for Gmail to send emails securely.
 The script depends on Powerleague's current page structure — future changes to the site may require updating the scraping logic. You will need to update the `fixturesUrl` variable. The current URL is listed below:
 
 ```python
-fixturesUrl = "https://www.powerleague.com/league?league_id=c28ebc23-afc1-5e98-d314-7ee32850746a&division_id=c28ebc23-afc1-5e98-d314-7ee3b0a7846b"
+fixturesUrl = "https://www.powerleague.com/league?league_id=fc705d00-05d4-c09b-db14-fa41402f1258&division_id=fc705d00-05d4-c09b-db14-fa4100d25e58"
 ```
 
 You can modify the team name (myTeam) and customise the player list inside the script.

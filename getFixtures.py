@@ -2,6 +2,7 @@ import requests
 
 # helps retrieve our environmen variables
 import os
+import sys
 
 # smtplib handles sending emails
 import smtplib
@@ -14,14 +15,30 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 
+# ─── Configuration ──────────────────────────────────────────────────────────────
+SCRIPT_DIR   = os.path.dirname(__file__)
+FLAG_FILE    = os.path.join(SCRIPT_DIR, "last_fixture_run.log")
+TEAM         = "AC Me Rol1in"        # customise as needed
+FIXTURES_URL = "https://www.powerleague.com/league?league_id=fc705d00-05d4-c09b-db14-fa41402f1258&division_id=fc705d00-05d4-c09b-db14-fa4100d25e58"
+# ─── End Configuration ──────────────────────────────────────────────────────────
+
+def should_run(window_days: int = 6) -> bool:
+    """Return True if the script hasn’t run in the past `window_days` days."""
+    if not os.path.exists(FLAG_FILE):
+        return True
+    last_mod = datetime.fromtimestamp(os.path.getmtime(FLAG_FILE))
+    return (datetime.now() - last_mod) > timedelta(days=window_days)
+
+def update_flag() -> None:
+    """Edit the flag file to mark ‘just ran’."""
+    with open(FLAG_FILE, "w") as f:
+        f.write(f"Last run at: {datetime.now().isoformat()}")
 
 def getFixturePageHTML():
-    fixturesUrl = "https://www.powerleague.com/league?league_id=c28ebc23-afc1-5e98-d314-7ee32850746a&division_id=c28ebc23-afc1-5e98-d314-7ee3b0a7846b"
-
     # Send a GET request to the URL
-    response = requests.get(fixturesUrl)
+    response = requests.get(FIXTURES_URL)
     if response.status_code != 200:
         print(f"Failed to retrieve the page. Status code: {response.status_code}")
         exit()
@@ -132,7 +149,7 @@ def send_email(subject, body):
         print(f"#####\nError sending mail:\n\n {e}\n#####")
 
 
-def get_next_fixture(yourTeam):
+def get_next_fixture():
     soup = getFixturePageHTML()
     # Find all rows under the Next Games section
     rows = soup.find_all("tr")
@@ -149,8 +166,8 @@ def get_next_fixture(yourTeam):
             team1 = teams[0].get_text(strip=True)
             team2 = teams[1].get_text(strip=True)
 
-            if myTeam in [team1, team2]:
-                opponent = team2 if myTeam == team1 else team1
+            if TEAM in [team1, team2]:
+                opponent = team2 if TEAM == team1 else team1
                 time = time_span.get_text(strip=True).split(" - ")[0]  # e.g., "19:40"
                 next_fixture = {"opponent": opponent, "time": time}
                 break
@@ -160,7 +177,7 @@ def get_next_fixture(yourTeam):
         or not next_fixture.get("opponent")
         or not next_fixture.get("time")
     ):
-        print("No upcoming fixture found for ", yourTeam)
+        print("No upcoming fixture found for ", TEAM)
         exit()
     opp_table_pos = get_table_position(soup, next_fixture["opponent"])
     fixtures_string = next_fixture_string(
@@ -169,9 +186,12 @@ def get_next_fixture(yourTeam):
     print(fixtures_string)
     subject = "Harris League Next Fixture"
     send_email(subject, fixtures_string)
+    update_flag()
 
 
 if __name__ == "__main__":
-    print("\nScript ran at", datetime.now())
-    myTeam = "AC Me Rol1in"
-    get_next_fixture(myTeam)
+    print("\nScript triggered at", datetime.now())
+    if not should_run():
+        print("Script already ran this week. Exiting.")
+        sys.exit(0)
+    get_next_fixture()
