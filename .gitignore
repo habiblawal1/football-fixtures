@@ -35,3 +35,5 @@ ENV/
 secrets.*
 config.yaml
 *.pem
+
+reviews.py

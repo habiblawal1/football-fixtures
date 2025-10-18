@@ -28,6 +28,12 @@ Place the `getFixtures.py` file in your project directory.
 pip install requests beautifulsoup4 python-dotenv
 ```
 
+or if that doesn't work, try the following:
+
+```bash
+python3 -m pip install requests beautifulsoup4 python-dotenv
+```
+
 ### 3. Create a .env file
 
 In the same directory, create a .env file with your email credentials:

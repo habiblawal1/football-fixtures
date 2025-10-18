@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 SCRIPT_DIR   = os.path.dirname(__file__)
 FLAG_FILE    = os.path.join(SCRIPT_DIR, "last_fixture_run.log")
 TEAM         = "AC Me Rol1in"        # customise as needed
-FIXTURES_URL = "https://www.powerleague.com/league?league_id=fc705d00-05d4-c09b-db14-fa41402f1258&division_id=fc705d00-05d4-c09b-db14-fa4100d25e58"
+FIXTURES_URL = "https://www.powerleague.com/league?league_id=95c0a561-3a86-aa83-e014-e4a7c0838ce5&division_id=95c0a561-3a86-aa83-e014-e4a7583dc7e5"
 # ─── End Configuration ──────────────────────────────────────────────────────────
 
 def should_run(window_days: int = 6) -> bool:
