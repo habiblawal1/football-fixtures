@@ -24,15 +24,31 @@ Place the `getFixtures.py` file in your project directory.
 
 ### 2. Install required Python libraries
 
-```bash
-pip install requests beautifulsoup4 python-dotenv
-```
+Using virtualenv is prefererable because it isolates project dependencies and prevents version conflicts.
 
-or if that doesn't work, try the following:
+1. Runs module that creates and manages your virtual environment inside the .venv folder
 
-```bash
-python3 -m pip install requests beautifulsoup4 python-dotenv
-```
+   ```bash
+   python3 -m venv .venv
+   ```
+
+1. Sets your current shell to use the Python and pip inside .venv instead of the system-wide ones.
+
+   ```bash
+   source .venv/bin/activate
+   ```
+
+1. Install dependencies inside the new venv
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+1. Make script file executable
+
+   ```bash
+   chmod +x </path/to/your/football-fixtures>/scripts/run_get_fixtures.sh
+   ```
 
 ### 3. Create a .env file
 
@@ -74,33 +90,37 @@ Save this file as:
     <key>Label</key>
     <string>com.getfixtures</string>
 
+    <!-- Run the wrapper script (use /bin/bash and the script path) -->
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/python</string>
-        <string>/path/to/your/football-fixtures/getFixtures.py</string>
+        <string>/bin/bash</string>
+        <string>/Users/habiblawal/GitHub/football-fixtures/scripts/run_get_fixtures.sh</string>
     </array>
 
+    <!-- Schedule: Friday (weekday 6) at 9:00 -->
     <key>StartCalendarInterval</key>
     <dict>
         <key>Weekday</key>
-        <integer>6</integer>  <!-- 6 = Friday -->
+        <integer>6</integer>
         <key>Hour</key>
-        <integer>12</integer>
+        <integer>9</integer>
         <key>Minute</key>
         <integer>0</integer>
     </dict>
 
-    <!-- Backup: retry hourly in case the machine was asleep -->
+    <!-- If the machine is asleep at 9:00 this StartInterval acts as a fallback retry -->
     <key>StartInterval</key>
     <integer>3600</integer>
 
-    <key>StandardOutPath</key>
-    <string>/path/to/your/football-fixtures/launchd.log</string>
-    <key>StandardErrorPath</key>
-    <string>/path/to/your/football-fixtures/launchd-error.log</string>
-
+    <!-- Run once when the job is loaded (i.e. at boot/login) -->
     <key>RunAtLoad</key>
     <true/>
+
+    <!-- Log files -->
+    <key>StandardOutPath</key>
+    <string>/Users/habiblawal/GitHub/football-fixtures/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/habiblawal/GitHub/football-fixtures/launchd-error.log</string>
 </dict>
 </plist>
 ```
@@ -113,6 +133,7 @@ Save this file as:
 ### 2. Load the launch agent
 
 ```bash
+launchctl unload ~/Library/LaunchAgents/com.getfixtures.plist 2>/dev/null || true
 launchctl load ~/Library/LaunchAgents/com.getfixtures.plist
 ```
 

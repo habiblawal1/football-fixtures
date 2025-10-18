@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.getfixtures</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/habiblawal/opt/anaconda3/bin/python</string>
+        <string>/Users/habiblawal/Documents/GitHub/football-fixtures/getFixtures.py</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>6</integer>  <!-- 6 = Friday -->
+        <key>Hour</key>
+        <integer>10</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Backup: retry hourly in case the machine was asleep -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+
+    <key>StandardOutPath</key>
+    <string>/Users/habiblawal/Documents/GitHub/football-fixtures/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/habiblawal/Documents/GitHub/football-fixtures/launchd-error.log</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>

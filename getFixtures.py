@@ -25,11 +25,36 @@ FIXTURES_URL = "https://www.powerleague.com/league?league_id=95c0a561-3a86-aa83-
 # ─── End Configuration ──────────────────────────────────────────────────────────
 
 def should_run(window_days: int = 6) -> bool:
-    """Return True if the script hasn’t run in the past `window_days` days."""
+    """Return True if the script should run.
+
+    New semantics: only prevent running if the script has already been run
+    from Tuesday or later in the current calendar week. In other words,
+    if the flag file's timestamp is in the same ISO week as now and its
+    weekday is Tuesday (1) or later, return False (do not run). Otherwise
+    return True.
+
+    The optional `window_days` parameter is kept for backward compatibility
+    but is not the primary control for weekly scheduling anymore.
+    """
     if not os.path.exists(FLAG_FILE):
         return True
+
     last_mod = datetime.fromtimestamp(os.path.getmtime(FLAG_FILE))
-    return (datetime.now() - last_mod) > timedelta(days=window_days)
+    now = datetime.now()
+
+    # Compare ISO week numbers (year + week) so we only consider "this week".
+    last_week = last_mod.isocalendar()[:2]  # (year, week)
+    this_week = now.isocalendar()[:2]
+
+    # If the last run was in the same calendar (ISO) week as now,
+    # and it happened on Tuesday (weekday == 1) or later, don't run.
+    if last_week == this_week:
+        if last_mod.weekday() >= 1:  # Monday=0, Tuesday=1, ...
+            return False
+        return True
+
+    # Otherwise (last run not in this week) allow running.
+    return True
 
 def update_flag() -> None:
     """Edit the flag file to mark ‘just ran’."""

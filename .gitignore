@@ -22,6 +22,7 @@ __pycache__/
 *.ipynb
 
 # Python virtual environments
+.venv/
 venv/
 env/
 ENV/
