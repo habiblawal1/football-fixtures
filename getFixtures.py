@@ -4,6 +4,8 @@ import requests
 import os
 import sys
 
+# Debug: (moved) will log where this script ran from and which python executed it when run under launchd
+
 # smtplib handles sending emails
 import smtplib
 
@@ -16,50 +18,93 @@ from dotenv import load_dotenv
 
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+from typing import Optional
+import json
 
 # ─── Configuration ──────────────────────────────────────────────────────────────
 SCRIPT_DIR   = os.path.dirname(__file__)
 FLAG_FILE    = os.path.join(SCRIPT_DIR, "last_fixture_run.log")
 TEAM         = "AC Me Rol1in"        # customise as needed
+# You can customise FIXTURES_URL if needed. Keep a valid URL here.
 FIXTURES_URL = "https://www.powerleague.com/league?league_id=95c0a561-3a86-aa83-e014-e4a7c0838ce5&division_id=95c0a561-3a86-aa83-e014-e4a7583dc7e5"
 # ─── End Configuration ──────────────────────────────────────────────────────────
 
-def should_run(window_days: int = 6) -> bool:
-    """Return True if the script should run.
+# Write a small startup debug entry to the project log so launchd runs are visible
+try:
+    with open(os.path.join(os.path.dirname(__file__), "launchd.log"), "a") as _log:
+        _log.write(f"getFixtures.py running: file={__file__} python={sys.executable} cwd={os.getcwd()}\n")
+except Exception:
+    # If logging fails, continue silently
+    pass
 
-    New semantics: only prevent running if the script has already been run
-    from Tuesday or later in the current calendar week. In other words,
-    if the flag file's timestamp is in the same ISO week as now and its
-    weekday is Tuesday (1) or later, return False (do not run). Otherwise
-    return True.
+SCHEDULE_WEEKDAY = 4  # Friday (Monday=0)
+SCHEDULE_HOUR = 9
+SCHEDULE_MINUTE = 0
 
-    The optional `window_days` parameter is kept for backward compatibility
-    but is not the primary control for weekly scheduling anymore.
+
+def _scheduled_datetime_for_week(now: Optional[datetime] = None) -> datetime:
+    """Return the scheduled datetime (this week's Friday at 09:00) for `now`.
+
+    This uses local (naive) datetimes consistent with how the script is run.
     """
+    now = now or datetime.now()
+    # Compute how many days until Friday of the current week
+    days_ahead = SCHEDULE_WEEKDAY - now.weekday()
+    # If days_ahead is negative, this computes a date earlier in the week
+    friday = now + timedelta(days=days_ahead)
+    return datetime(friday.year, friday.month, friday.day, SCHEDULE_HOUR, SCHEDULE_MINUTE)
+
+
+def _read_flag() -> Optional[dict]:
+    """Read JSON flag file and return its payload, or None if missing/invalid."""
     if not os.path.exists(FLAG_FILE):
-        return True
+        return None
+    try:
+        with open(FLAG_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return None
 
-    last_mod = datetime.fromtimestamp(os.path.getmtime(FLAG_FILE))
+
+def should_run(window_days: int = 6) -> bool:
+    """Return True only if the scheduled time this week has passed and
+    we haven't already recorded a successful run in this ISO week.
+
+    Behavior:
+    - If now < this week's Friday 09:00 -> don't run.
+    - If no flag present and now >= scheduled time -> run.
+    - If flag is present and its ISO week matches this week -> don't run.
+    - Otherwise -> run.
+    """
     now = datetime.now()
+    sched = _scheduled_datetime_for_week(now)
 
-    # Compare ISO week numbers (year + week) so we only consider "this week".
-    last_week = last_mod.isocalendar()[:2]  # (year, week)
-    this_week = now.isocalendar()[:2]
+    # Only allow running once the scheduled time this week has passed.
+    if now < sched:
+        return False
 
-    # If the last run was in the same calendar (ISO) week as now,
-    # and it happened on Tuesday (weekday == 1) or later, don't run.
-    if last_week == this_week:
-        if last_mod.weekday() >= 1:  # Monday=0, Tuesday=1, ...
-            return False
+    flag = _read_flag()
+    if not flag:
         return True
 
-    # Otherwise (last run not in this week) allow running.
+    last_iso = tuple(flag.get("iso_year_week", ()))
+    this_iso = now.isocalendar()[:2]
+    if last_iso == this_iso:
+        return False
+
     return True
 
 def update_flag() -> None:
-    """Edit the flag file to mark ‘just ran’."""
-    with open(FLAG_FILE, "w") as f:
-        f.write(f"Last run at: {datetime.now().isoformat()}")
+    """Atomically write a JSON flag recording the successful run.
+
+    Payload example: {"timestamp": "...", "iso_year_week": [2025, 43]}
+    """
+    now = datetime.now()
+    payload = {"timestamp": now.isoformat(), "iso_year_week": now.isocalendar()[:2]}
+    tmp = FLAG_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(payload, f)
+    os.replace(tmp, FLAG_FILE)
 
 def getFixturePageHTML():
     # Send a GET request to the URL
@@ -168,10 +213,12 @@ def send_email(subject, body):
             server.login(EMAIL_ADDRESS, PASSWORD)
             server.sendmail(EMAIL_ADDRESS, RECIPIENT_EMAIL, msg.as_string())
 
-        print("Email Sent Succesfully!")
+        print("Email Sent Successfully!")
+        return True
 
     except Exception as e:
         print(f"#####\nError sending mail:\n\n {e}\n#####")
+        return False
 
 
 def get_next_fixture():
@@ -210,8 +257,15 @@ def get_next_fixture():
     )
     print(fixtures_string)
     subject = "Harris League Next Fixture"
-    send_email(subject, fixtures_string)
-    update_flag()
+    # Only mark the run as successful after the email is sent successfully.
+    email_ok = send_email(subject, fixtures_string)
+    if email_ok:
+        try:
+            update_flag()
+        except Exception:
+            print("Warning: failed to update flag file after successful email")
+    else:
+        print("Email failed; not updating last_fixture_run.log so job may retry next schedule")
 
 
 if __name__ == "__main__":

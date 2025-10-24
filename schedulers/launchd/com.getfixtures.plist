@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.getfixtures</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/habiblawal/GitHub/football-fixtures/scripts/run_get_fixtures.sh</string>
+    </array>
+
+    <!-- Friday at 09:00 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>6</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Run once when the agent is loaded (i.e. at user login/boot) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/habiblawal/GitHub/football-fixtures/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/habiblawal/GitHub/football-fixtures/launchd-error.log</string>
+</dict>
+</plist>

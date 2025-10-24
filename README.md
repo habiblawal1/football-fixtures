@@ -44,12 +44,6 @@ Using virtualenv is prefererable because it isolates project dependencies and pr
    pip install -r requirements.txt
    ```
 
-1. Make script file executable
-
-   ```bash
-   chmod +x </path/to/your/football-fixtures>/scripts/run_get_fixtures.sh
-   ```
-
 ### 3. Create a .env file
 
 In the same directory, create a .env file with your email credentials:
@@ -74,87 +68,79 @@ You'll see the fixture printed in the terminal and emailed to your recipient.
 
 ## ⏰ Automate with launchd (macOS)
 
-This script can be automated using macOS's native scheduler, launchd. You can schedule it to run every Friday at 12:00 PM.
+This repo includes a recommended `launchd` setup that runs the job every Friday at 09:00 local time and — if the laptop was off at that time — will run once when the agent is loaded at next login/boot.
 
-### 1. Create a .plist file
+Important behavior notes (implemented in the script):
 
-Save this file as:
-~/Library/LaunchAgents/com.getfixtures.plist
+- The script's `should_run()` only allows a run when the current time is at-or-after this week's scheduled datetime (Friday 09:00) and there is no recorded successful run for the current ISO week.
+- The script records a successful run by writing a small JSON payload to `last_fixture_run.log` — and it only writes that payload after the email has been successfully sent. This prevents duplicate successful emails in the same week while allowing a missed-schedule run to happen at next boot.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.getfixtures</string>
+### Files included
 
-    <!-- Run the wrapper script (use /bin/bash and the script path) -->
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/bash</string>
-        <string>/Users/habiblawal/GitHub/football-fixtures/scripts/run_get_fixtures.sh</string>
-    </array>
+- `scripts/run_get_fixtures.sh` — wrapper that cds to the project, uses `.venv` Python if present, and logs debug output to `launchd.log`/`launchd-error.log`.
+- `schedulers/launchd/com.getfixtures.plist` — recommended plist you can copy to `~/Library/LaunchAgents`.
 
-    <!-- Schedule: Friday (weekday 6) at 9:00 -->
-    <key>StartCalendarInterval</key>
-    <dict>
-        <key>Weekday</key>
-        <integer>6</integer>
-        <key>Hour</key>
-        <integer>9</integer>
-        <key>Minute</key>
-        <integer>0</integer>
-    </dict>
+### 1. Make the wrapper executable.
 
-    <!-- If the machine is asleep at 9:00 this StartInterval acts as a fallback retry -->
-    <key>StartInterval</key>
-    <integer>3600</integer>
+Ensure you **include the path to the football-fixtures repo** in the placeholder
 
-    <!-- Run once when the job is loaded (i.e. at boot/login) -->
-    <key>RunAtLoad</key>
-    <true/>
-
-    <!-- Log files -->
-    <key>StandardOutPath</key>
-    <string>/Users/habiblawal/GitHub/football-fixtures/launchd.log</string>
-    <key>StandardErrorPath</key>
-    <string>/Users/habiblawal/GitHub/football-fixtures/launchd-error.log</string>
-</dict>
-</plist>
+```bash
+chmod +x </path/to/your/football-fixtures>/scripts/run_get_fixtures.sh
 ```
 
-📝 Replace:
+### 2. Install the plist for your user
 
-- `/path/to/python` with the path to your Python binary (`which python`)
-- `/path/to/your/football-fixtures` with your project directory
+Copy the plist from the repo into your LaunchAgents folder and load it Ensure you **include the path to the football-fixtures repo** in the placeholder:
 
-### 2. Load the launch agent
+```bash
+cp </path/to/your/football-fixtures>/schedulers/launchd/com.getfixtures.plist ~/Library/LaunchAgents/com.getfixtures.plist
+```
 
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.getfixtures.plist 2>/dev/null || true
+```
+
+```bash
 launchctl load ~/Library/LaunchAgents/com.getfixtures.plist
 ```
 
-To test it manually:
+To test run immediately:
 
 ```bash
 launchctl start com.getfixtures
 ```
 
-To reload after edits:
+To reload the agent after you edit the plist:
 
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.getfixtures.plist
+```
+
+```bash
 launchctl load ~/Library/LaunchAgents/com.getfixtures.plist
 ```
 
-To check logs:
+### 3. Logs & debugging
+
+Tail the project logs to see what happened during a launchd run:
 
 ```bash
-tail -f /path/to/your/football-fixtures/launchd.log
+tail -f /Users/habiblawal/GitHub/football-fixtures/launchd.log /Users/habiblawal/GitHub/football-fixtures/launchd-error.log
 ```
+
+The wrapper writes debug info (cwd, python executable) to `launchd.log` so you can confirm the same interpreter and script copy were used.
+
+### 4. Common issues
+
+- If the job runs repeatedly (e.g. hourly), ensure your plist does not contain a `StartInterval` key — the included plist intentionally omits it.
+- If the job appears to run but nothing happens, check that `scripts/run_get_fixtures.sh` is executable and that the wrapper's Python has the required packages installed (activate `.venv` or install deps into the target interpreter).
+- If email fails, the script will NOT update `last_fixture_run.log` — that allows the job to retry on the next scheduled Friday (or on next boot if the scheduled time was missed).
+
+### 5. Why this meets the requirement
+
+- Scheduled weekly at Friday 09:00 via `StartCalendarInterval`.
+- `RunAtLoad` causes the agent to run at login/boot, but the script's `should_run()` prevents an early run unless the scheduled Friday 09:00 has already passed — so login on Monday won’t trigger an early run.
+- The JSON flag records successful runs only after the email is sent, so failures don't incorrectly block future retries.
 
 ## 📤 Example Output
 
